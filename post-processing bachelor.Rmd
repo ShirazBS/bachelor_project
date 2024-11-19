@@ -1,0 +1,963 @@
+---
+title: "Post-Processing"
+author: "Shiraz Ben Shoshan"
+date: "2023-12-10"
+output:
+  html_document:
+      toc: yes
+      number_sections: yes
+      toc_float: yes
+      theme: united
+      highlight: espresso
+      css: '../../varia/standard.css'
+  pdf_document:
+    toc: no
+    number_sections: yes
+geometry: margin=1in
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/data/')
+
+pacman::p_load(
+  tidyverse,
+  brms,
+  patchwork,
+  stringr
+)
+
+```
+
+## loading in the data
+
+
+```{r loading in data}
+getwd()
+
+logfile_paths <- list.files(path = getwd(), pattern = "*\\.csv$", full.names = TRUE)
+
+df <- map_dfr(
+  logfile_paths,
+  read_csv)
+
+```
+
+## cleaning the data from irrelevant columns
+
+
+```{r cleaning the dataframe}
+
+df <- df %>% 
+  select(subject_nr, age, gender, nationality, initiation_time, left_image, right_image, response, response_time, timestamps_mouse_1, xpos_mouse_1, ypos_mouse_1)
+
+```
+
+## creating a new df based on the conditions response 
+
+```{r creating a new df}
+#creating a new column that gives the full image name for the chosen image
+#df_wc stands for df with conditions
+df_wc <- df %>%
+  mutate(chosen_image = ifelse(response == "left_button", left_image, right_image)) %>% 
+  mutate(unchosen_image = ifelse(response == "left_button", right_image, left_image))
+
+#fixing spelling mistake for denmark
+df_wc <- df_wc %>%
+  mutate(nationality = ifelse(nationality == "demark", "denmark", nationality))
+
+#mutating country to be other in new column so its either denmark or other
+df_wc <- df_wc %>% 
+  mutate(country = ifelse(nationality == "denmark", "denmark", "other"))
+
+#creating new columns with correct conditions for the chosen image
+df_wc <- df_wc %>% 
+  mutate(ci_bf_correct = as.numeric(str_detect(chosen_image, "bf")),
+         ci_cc_correct = as.numeric(str_detect(chosen_image, "cc")),
+         ci_nbsr_nkss_correct = as.numeric(str_detect(chosen_image, "nk_ss|nb_sr")))
+
+#creating new columns with the correct conditions for the unchosen image for comparison
+df_wc <- df_wc %>% 
+  mutate(ui_bf_correct = as.numeric(str_detect(unchosen_image, "bf")),
+         ui_cc_correct = as.numeric(str_detect(unchosen_image, "cc")),
+         ui_nbsr_nkss_correct = as.numeric(str_detect(unchosen_image, "nk_ss|nb_sr")))  
+
+```
+
+
+#creating summaries of the data
+```{r summary for bird condition}
+#plotting the raw data based on if the correct conditions were the ones chosen or unchosen
+
+#bird familiar condition - looking at the correct response
+# Create a summary data frame with counts of correct conditions in chosen and unchosen images
+bf_summary <- df_wc %>%
+  group_by(response) %>%
+  summarize(chosen_correct = sum(ci_bf_correct == 1),
+            chosen_incorrect = sum(ci_bf_correct == 0))
+
+print(bf_summary)
+
+#looking at response time
+bf_rt_summary <- df_wc %>%
+  group_by(ci_bf_correct) %>%
+  summarize(mean_response_time = mean(response_time, na.rm = TRUE))
+
+print(bf_rt_summary)
+
+#grouped by age
+bf_age <- df_wc %>%
+  group_by(age) %>%
+  summarize(chosen_correct = sum(ci_bf_correct == 1),
+            chosen_incorrect = sum(ci_bf_correct == 0))
+
+print(bf_age)
+
+#grouped by gender
+bf_gender <- df_wc %>%
+  group_by(gender) %>%
+  summarize(chosen_correct = sum(ci_bf_correct == 1),
+            chosen_incorrect = sum(ci_bf_correct == 0))
+
+print(bf_gender)
+
+#grouped by nationality
+bf_nationality <- df_wc %>%
+  group_by(nationality) %>%
+  summarize(chosen_correct = sum(ci_bf_correct == 1),
+            chosen_incorrect = sum(ci_bf_correct == 0))
+
+print(bf_nationality)
+```
+
+```{r summary for color condition}
+#color condition 
+# Create a summary data frame with counts of correct conditions in chosen and unchosen images
+cc_summary <- df_wc %>%
+  group_by(response) %>%
+  summarize(chosen_correct = sum(ci_cc_correct == 1),
+            chosen_incorrect = sum(ci_cc_correct == 0))
+
+print(cc_summary)
+
+#looking at response time
+cc_rt_summary <- df_wc %>%
+  group_by(ci_cc_correct) %>%
+  summarize(mean_response_time = mean(response_time, na.rm = TRUE))
+
+print(cc_rt_summary)
+
+#grouped by age
+cc_age <- df_wc %>%
+  group_by(age) %>%
+  summarize(chosen_correct = sum(ci_cc_correct == 1),
+            chosen_incorrect = sum(ci_cc_correct == 0))
+
+print(cc_age)
+
+#grouped by gender
+cc_gender <- df_wc %>%
+  group_by(gender) %>%
+  summarize(chosen_correct = sum(ci_cc_correct == 1),
+            chosen_incorrect = sum(ci_cc_correct == 0))
+
+print(bf_gender)
+
+#grouped by nationality
+cc_nationality <- df_wc %>%
+  group_by(nationality) %>%
+  summarize(chosen_correct = sum(ci_cc_correct == 1),
+            chosen_incorrect = sum(ci_cc_correct == 0))
+
+print(cc_nationality)
+
+```
+```{r summary for kiki-bouba condition}
+#kiki bouba condition
+nb_sr_summary <- df_wc %>%
+  group_by(response) %>%
+  summarize(chosen_correct = sum(ci_nbsr_nkss_correct == 1),
+            chosen_incorrect = sum(ci_nbsr_nkss_correct == 0))
+
+print(nb_sr_summary)
+
+nb_sr_rt_summary <- df_wc %>%
+  group_by(ci_nbsr_nkss_correct) %>%
+  summarize(mean_response_time = mean(response_time, na.rm = TRUE))
+
+print(nb_sr_rt_summary)
+
+#grouped by age
+nb_sr_age <- df_wc %>%
+  group_by(age) %>%
+  summarize(chosen_correct = sum(ci_nbsr_nkss_correct == 1),
+            chosen_incorrect = sum(ci_nbsr_nkss_correct == 0))
+
+print(nb_sr_age)
+
+#grouped by gender
+nb_sr_gender <- df_wc %>%
+  group_by(gender) %>%
+  summarize(chosen_correct = sum(ci_nbsr_nkss_correct == 1),
+            chosen_incorrect = sum(ci_nbsr_nkss_correct == 0))
+
+print(nb_sr_gender)
+
+#grouped by nationality
+nb_sr_nationality <- df_wc %>%
+  group_by(nationality) %>%
+  summarize(chosen_correct = sum(ci_nbsr_nkss_correct == 1),
+            chosen_incorrect = sum(ci_nbsr_nkss_correct == 0))
+
+print(nb_sr_nationality)
+```
+
+#creating models for the comparison of the different conditions
+```{r creating formulas}
+#creating my formulas 
+
+formula1 <- brms::bf(response_time ~ ci_bf_correct + ci_cc_correct + ci_nbsr_nkss_correct)
+formula2 <- brms::bf(response_time ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_correct)
+formula3 <- brms::bf(response_time ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_correct + age)
+formula4 <- brms::bf(response_time ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_correct + gender)
+formula5 <- brms::bf(response_time ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_correct + gender + country)
+formula6 <- brms::bf(response_time ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_correct + gender + country + (1|subject_nr))
+formula7 <- brms::bf(response_time ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_correct + gender + country + initiation_time + (1 + initiation_time|subject_nr))
+
+
+```
+
+#getting priors for all formulas
+```{r getting priors}
+#install.packages("sjstats")
+pacman::p_load("sjstats")
+
+#formula 1
+get_prior(formula1,df_wc)
+sjstats::auto_prior(formula1, df_wc, gaussian = T)
+priors1 <- c(
+  prior(normal(0, 11718.7), class = Intercept, lb = 0),
+  prior(normal(0, 6563.89), class = b, coef = ci_bf_correct),
+  prior(normal(0,5860.86), class = b, coef = ci_cc_correct),
+  prior(normal(0, 5859.44), class = b, coef = ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = sigma, lb = 0)
+)
+
+#formula 2
+get_prior(formula2,df_wc)
+sjstats::auto_prior(formula2, df_wc, gaussian = T)
+priors2 <- c(
+  prior(normal(0, 11718.7), class = Intercept, lb = 0),
+  prior(normal(0, 6563.89), class = b, coef = ci_bf_correct),
+  prior(normal(0,5860.86), class = b, coef = ci_cc_correct),
+  prior(normal(0, 5859.44), class = b, coef = ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct),
+  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct:ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = b, coef = ci_cc_correct:ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = sigma, lb = 0)
+)
+
+#formula 3
+get_prior(formula3,df_wc)
+sjstats::auto_prior(formula3, df_wc, gaussian = T)
+priors3 <- c(
+  prior(normal(0, 11718.7), class = Intercept, lb = 0),
+  prior(normal(0, 6563.89), class = b, coef = ci_bf_correct),
+  prior(normal(0,5860.86), class = b, coef = ci_cc_correct),
+  prior(normal(0, 5859.44), class = b, coef = ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct),
+  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct:ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = b, coef = ci_cc_correct:ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = sigma, lb = 0)
+)
+
+#formula 4
+get_prior(formula4,df_wc)
+sjstats::auto_prior(formula4, df_wc, gaussian = T)
+priors4 <- c(
+  prior(normal(0, 11718.7), class = Intercept, lb = 0),
+  prior(normal(0, 6563.89), class = b, coef = ci_bf_correct),
+  prior(normal(0,5860.86), class = b, coef = ci_cc_correct),
+  prior(normal(0, 5859.44), class = b, coef = ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct),
+  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct:ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = b, coef = ci_cc_correct:ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = sigma, lb = 0)
+)
+
+#formula 5
+get_prior(formula5,df_wc)
+sjstats::auto_prior(formula5, df_wc, gaussian = T)
+priors5 <- c(
+  prior(normal(0, 11718.7), class = Intercept, lb = 0),
+  prior(normal(0, 6563.89), class = b, coef = ci_bf_correct),
+  prior(normal(0,5860.86), class = b, coef = ci_cc_correct),
+  prior(normal(0, 5859.44), class = b, coef = ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct),
+  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct:ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = b, coef = ci_cc_correct:ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = sigma, lb = 0)
+)
+
+#formula 6
+get_prior(formula6,df_wc)
+sjstats::auto_prior(formula6, df_wc, gaussian = T)
+priors6 <- c(
+  prior(normal(0, 11718.7), class = Intercept, lb = 0),
+  prior(normal(0, 6563.89), class = b, coef = ci_bf_correct),
+  prior(normal(0, 5860.86), class = b, coef = ci_cc_correct),
+  prior(normal(0, 5859.44), class = b, coef = ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct),
+  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct:ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = b, coef = ci_cc_correct:ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = sigma, lb = 0)
+)
+
+#formula 7
+get_prior(formula7,df_wc)
+sjstats::auto_prior(formula7, df_wc, gaussian = FALSE)
+priors7 <- c(
+  prior(normal(0, 11718.7), class = Intercept, lb = 0),
+  prior(normal(0, 6563.89), class = b, coef = ci_bf_correct),
+  prior(normal(0, 5860.86), class = b, coef = ci_cc_correct),
+  prior(normal(0, 5859.44), class = b, coef = ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct),
+  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct:ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = b, coef = ci_cc_correct:ci_nbsr_nkss_correct),
+  prior(normal(0, 1), class = sigma, lb = 0)
+)
+
+```
+
+#model predictive checking
+```{r predictive checking}
+model1_prior <- brm(
+  formula1,
+  df_wc,
+  family = gaussian,
+  prior = priors1,
+  sample_prior = "only",
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model1_prior',
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  seed = 112
+)
+
+model2_prior <- brm(
+  formula2,
+  df_wc,
+  family = gaussian,
+  prior = priors2,
+  sample_prior = "only",
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model2_prior',
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  seed = 112
+)
+
+model3_prior <- brm(
+  formula3,
+  df_wc,
+  family = gaussian,
+  prior = priors3,
+  sample_prior = "only",
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model3_prior',
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  seed = 112
+)
+
+model4_prior <- brm(
+  formula4,
+  df_wc,
+  family = gaussian,
+  prior = priors4,
+  sample_prior = "only",
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model4_prior',
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  seed = 112
+)
+
+model5_prior <- brm(
+  formula5,
+  df_wc,
+  family = gaussian,
+  prior = priors5,
+  sample_prior = "only",
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model5_prior',
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  seed = 112
+)
+
+model6_prior <- brm(
+  formula6,
+  df_wc,
+  family = gaussian,
+  prior = priors6,
+  sample_prior = "only",
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model6_prior',
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  seed = 112
+)
+
+model7_prior <- brm(
+  formula7,
+  df_wc,
+  family = gaussian,
+  prior = priors7,
+  sample_prior = "only",
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model7_prior',
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  seed = 112
+)
+
+prior_predictive1 <- pp_check(model1_prior, ndraws = 100)
+prior_predictive2 <- pp_check(model2_prior, ndraws = 100)
+prior_predictive3 <- pp_check(model3_prior, ndraws = 100)
+prior_predictive4 <- pp_check(model4_prior, ndraws = 100)
+prior_predictive5 <- pp_check(model5_prior, ndraws = 100)
+prior_predictive6 <- pp_check(model6_prior, ndraws = 100)
+prior_predictive7 <- pp_check(model7_prior, ndraws = 100)
+
+
+prior_predictive1 + xlim(c(-1000, 30000)) 
+prior_predictive2 + xlim(c(-1000, 30000)) 
+prior_predictive3 + xlim(c(-1000, 30000)) 
+prior_predictive4 + xlim(c(-1000, 30000)) 
+prior_predictive5 + xlim(c(-1000, 30000)) 
+prior_predictive6 + xlim(c(-1000, 30000)) 
+prior_predictive7 + xlim(c(-1000, 30000))
+```
+#fitting the models
+```{r model fitting}
+model1 <- brm(
+  formula1, 
+  df_wc,
+  family = shifted_lognormal,
+  prior = model1_prior$prior,
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  threads = threading(2),
+  control = list(
+    adapt_delta = 0.9,
+    max_treedepth = 20),
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model1_fit',
+  stan_model_args = list(stanc_options = list("O1")),
+  seed = 112,
+  save_all_pars = TRUE
+  )
+
+model2 <- brm(
+  formula2, 
+  df_wc,
+  family = shifted_lognormal,
+  prior = model2_prior$prior,
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  threads = threading(2),
+  control = list(
+    adapt_delta = 0.9,
+    max_treedepth = 20),
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model2_fit',
+  stan_model_args = list(stanc_options = list("O1")),
+  seed = 112,
+  save_all_pars = TRUE
+  )
+
+model3 <- brm(
+  formula3, 
+  df_wc,
+  family = shifted_lognormal,
+  prior = model3_prior$prior,
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  threads = threading(2),
+  control = list(
+    adapt_delta = 0.9,
+    max_treedepth = 20),
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model3_fit',
+  stan_model_args = list(stanc_options = list("O1")),
+  seed = 112,
+  save_all_pars = TRUE
+  )
+
+model4 <- brm(
+  formula4, 
+  df_wc,
+  family = shifted_lognormal,
+  prior = model4_prior$prior,
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  threads = threading(2),
+  control = list(
+    adapt_delta = 0.9,
+    max_treedepth = 20),
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model4_fit',
+  stan_model_args = list(stanc_options = list("O1")),
+  seed = 112,
+  save_all_pars = TRUE
+  )
+
+model5 <- brm(
+  formula5, 
+  df_wc,
+  family = shifted_lognormal,
+  prior = model5_prior$prior,
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  threads = threading(2),
+  control = list(
+    adapt_delta = 0.9,
+    max_treedepth = 20),
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model5_fit',
+  stan_model_args = list(stanc_options = list("O1")),
+  seed = 112,
+  save_all_pars = TRUE
+  )
+
+model6 <- brm(
+  formula6, 
+  df_wc,
+  family = shifted_lognormal,
+  prior = model6_prior$prior,
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  threads = threading(2),
+  control = list(
+    adapt_delta = 0.9,
+    max_treedepth = 20),
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model6_fit',
+  stan_model_args = list(stanc_options = list("O1")),
+  seed = 112,
+  save_all_pars = TRUE
+  )
+
+model7 <- brm(
+  formula7, 
+  df_wc,
+  family = shifted_lognormal,
+  prior = model7_prior$prior,
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  threads = threading(2),
+  control = list(
+    adapt_delta = 0.9,
+    max_treedepth = 20),
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model7_fit',
+  stan_model_args = list(stanc_options = list("O1")),
+  seed = 112,
+  save_all_pars = TRUE
+  )
+```
+
+
+#model quality checks
+```{r quality checks}
+model1
+plot(model1)
+model2
+plot(model2)
+model3
+plot(model3)
+model4
+plot(model4)
+model5
+plot(model5)
+model6
+plot(model6)
+model7
+plot(model7)
+```
+#model comparison
+```{r}
+posterior_predictive1 <- pp_check(model1, ndraws = 100)
+posterior_predictive2 <- pp_check(model2, ndraws = 100)
+posterior_predictive3 <- pp_check(model3, ndraws = 100)
+posterior_predictive4 <- pp_check(model4, ndraws = 100)
+posterior_predictive5 <- pp_check(model5, ndraws = 100)
+posterior_predictive6 <- pp_check(model6, ndraws = 100)
+posterior_predictive7 <- pp_check(model7, ndraws = 100)
+
+posterior_predictive1
+posterior_predictive2
+posterior_predictive3
+posterior_predictive4
+posterior_predictive5
+posterior_predictive6
+posterior_predictive7
+
+m1 <- add_criterion(model1, criterion = "loo")
+m2 <- add_criterion(model2, criterion = "loo")
+m3 <- add_criterion(model3, criterion = "loo")
+m4 <- add_criterion(model4, criterion = "loo")
+m5 <- add_criterion(model5, criterion = "loo")
+m6 <- add_criterion(model6, criterion = "loo")
+m7 <- add_criterion(model7, criterion = "loo")
+
+waic(model1)
+waic(model2)
+waic(model3)
+waic(model4)
+waic(model5)
+waic(model6)
+waic(model7)
+
+loo_compare(m1, m2, m3, m4, m5, m6, m7)
+loo_model_weights(m1, m2, m3, m4, m5, m6, m7)
+
+bayes_R2(model1)
+bayes_R2(model2)
+bayes_R2(model3)
+bayes_R2(model4)
+bayes_R2(model5)
+bayes_R2(model6)
+bayes_R2(model7)
+```
+
+#finding out what the best model says about the data
+```{r looking at the best model}
+summary(model7)
+
+library(vip)
+
+
+# Variable importance based on BMA
+var_imp <- conditional_effects(model7)
+
+# Plot variable importance
+plot(var_imp)
+```
+
+only the predictor of bird familiarity ci_bf_correct is the only predictor showing strong evidence of association with changes in response_time. The 95% credible interval for ci_bf_correct does not include zero, suggesting a credible effect on the response variable. Since the entire interval (-135.34 to -99.50) does not include zero, we can say that the predictor ci_bf_correct is credibly different from zero. In other words, there is evidence that changes in ci_bf_correct are associated with changes in response_time. This is often interpreted as a credible effect or significance in Bayesian terms.
+
+###Mouse Tracking Part
+
+```{r defining mousetracking function}
+#creating a dataframe for mousetracking just so we have one that is different so nothing changes above
+df_mt <- df_wc %>% 
+  rename(subject_id = subject_nr)
+
+#creating a function to split the x and y coordinates
+scale_raw_mousetrap_data <- function(df_mt) {
+  # Split data
+  scale_raw_data <- function(x) {
+    # helper function https://github.com/PascalKieslich/mousetrap/blob/master/R/import.R#L226C3-L243C66
+    split <- ","
+    # Remove all irrelevant characters
+    x <- gsub(pattern=paste0("[^-e0123456789.",split,"]"),replacement = "", x)
+
+    # Remove leading / end / double split characters
+    x <- gsub(pattern=paste0("^",split),replacement = "", x)
+    x <- gsub(pattern=paste0(split,"$"),replacement = "", x)
+    x <- gsub(pattern=paste0(split,split),replacement = "", x)
+
+    # Split according to specified character
+    x <- strsplit(x, split=split)
+
+    return(as.numeric(unlist(x)))
+  }
+  # get subject row indices by unique "subject_id" and "experiment_start_time" (in case two have the same id)
+  idxs <- df_mt %>%
+    mutate(
+      idx = row_number()
+    ) %>%
+    select(
+      idx,
+      subject_id
+    )
+
+  # now loop and scale/standardize each subject's data
+  for (i in unique(idxs$subject_id)) {
+    # get the indices for this subject
+    idxs_sub <- idxs %>%
+      filter(
+        subject_id == i
+      ) %>%
+      pull(
+        idx
+      )
+
+    # get the data for this subject
+    subj_pos_data <- apply(
+      df[idxs_sub, c(
+          'xpos_tracking',
+          'ypos_tracking'
+        )
+      ],
+      c(1, 2),
+      scale_raw_data
+    )
+
+    # get the lengths of the lists
+    xpos_lengths <- sapply(subj_pos_data[, 'xpos_tracking'], length)
+    ypos_lengths <- sapply(subj_pos_data[, 'ypos_tracking'], length)
+
+    # flatten and scale the lists
+    flattened_xpos <- scale(unlist(subj_pos_data[, 'xpos_tracking']))
+    flattened_ypos <- scale(unlist(subj_pos_data[, 'ypos_tracking']))
+
+    # put the data back together
+    for (j in 1:length(idxs_sub)) {
+      df[idxs_sub[j], 'xpos_tracking'] <- paste(flattened_xpos[1:xpos_lengths[j]], collapse = ',')
+      df[idxs_sub[j], 'ypos_tracking'] <- paste(flattened_ypos[1:ypos_lengths[j]], collapse = ',')
+
+      flattened_xpos <- flattened_xpos[(xpos_lengths[j] + 1):length(flattened_xpos)]
+      flattened_ypos <- flattened_ypos[(ypos_lengths[j] + 1):length(flattened_ypos)]
+    }
+  }
+  return(df_mt)
+}
+```
+
+#loading in packages
+```{r loading in necessary packages}
+#loading in packages
+pacman::p_load(mousetrap, tidyverse, readbulk)
+```
+
+#loading in the mousetracking data specifically
+```{r loading in mousetracking data}
+
+mt_data <- mt_import_mousetrap(
+  df_mt, xpos_label = "xpos_mouse_1", ypos_label = "ypos_mouse_1", timestamps_label = "timestamps_mouse_1",
+    verbose = TRUE
+)
+
+```
+
+#plot the coniditons answers
+```{r plot condition answers}
+#making plot per condition bird familiar
+mt_plot(mt_data, color = 'response', wrap_var = 'ci_bf_correct') + scale_y_reverse()
+
+#plotting condition of color cool
+mt_plot(mt_data, color = 'response', wrap_var = 'ci_cc_correct') + scale_y_reverse()
+
+#plotting condition of kiki-bouba
+mt_plot(mt_data, color = 'response', wrap_var = 'ci_nbsr_nkss_correct') + scale_y_reverse()
+```
+
+#mapping the trajectories
+```{r}
+# for touchtracker data, 1st align starts
+mt_data <- mt_align_start(
+  mt_data,
+  use = 'trajectories',
+  dimensions = c("xpos", "ypos")
+)
+
+str(mt_data)
+
+mt_plot(
+  mt_data, 
+  use = 'trajectories',
+  color = 'response',
+  wrap_var = 'ci_bf_correct',
+  x = 'xpos',
+  y = 'ypos'
+) +
+  scale_y_reverse()
+
+# now we can remap the trajectories
+# for touchtracker data
+mt_data <- mt_remap_symmetric(
+  mt_data, 
+  use = 'trajectories',
+  remap_xpos = "right",
+  remap_ypos = "up" 
+)
+
+# plot again
+mt_plot(
+  mt_data, 
+  use = 'trajectories',
+  color = 'subject_id',
+  wrap_var = 'ci_bf_correct',
+)
+```
+
+#cleaning the data
+```{r}
+#removing the initiation time
+data_norm <- mt_exclude_initiation(mt_data)
+
+
+mt_plot(
+  data_norm, 
+  x = 'timestamps', # modifying the x-axis to plot timestamps
+  y = 'xpos',       # modifying the y-axis to plot the xpos
+  use = 'trajectories',
+)
+
+#normalizing the time
+data_norm <- mt_time_normalize(mt_data)
+
+mt_plot(
+  data_norm, 
+  x = 'timestamps', # modifying the x-axis to plot timestamps
+  y = 'xpos',       # modifying the y-axis to plot the xpos
+  use = 'tn_trajectories'
+)
+
+#trying out different time normalized options
+mt_tn <- mt_time_normalize(
+  data_norm,
+  nsteps = 101
+)
+
+#plot
+mt_plot(
+  mt_tn, 
+  use = 'tn_trajectories',
+  color = "subject_id"
+)
+
+```
+
+#aggregating the data in the plots 
+```{r}
+mt_plot_aggregate(
+  mt_tn, 
+  use = 'trajectories',
+  color = 'response'
+)
+
+#aggregated tn mouse trajectories for the bird condition
+mt_plot_aggregate(
+  mt_tn, 
+  use = 'tn_trajectories',
+  color = 'ci_bf_correct'
+) + 
+  labs(
+    title = 'Aggregated mouse trajectories for the bird condition')
+
+
+#aggregated tn mouse trajectories for the color condition
+mt_plot_aggregate(
+  mt_tn, 
+  use = 'tn_trajectories',
+  color = 'ci_cc_correct'
+) + 
+  labs(
+    title = 'Aggregated time-normalized mouse trajectories for color condition')
+
+#aggregated tn mouse trajectories for the kiki-bouba condition
+mt_plot_aggregate(
+  mt_tn, 
+  use = 'tn_trajectories',
+  color = 'ci_nbsr_nkss_correct'
+) + 
+  labs(
+    title = 'Aggregated time-normalized mouse trajectories for kiki-bouba condition')
+```
+
+#aggregating measures
+```{r}
+#applying measures function to look at outcome of data
+mt_tn <- mt_measures(mt_tn, use = 'tn_trajectories')
+
+mt_tn
+
+mt_measures_ag <- mt_aggregate(
+  mt_tn,
+  use = 'measures',
+  use_variables = c('MAD', 'xpos_flips','AUC', 'RT'), # if you want all of the measures, exclude this line
+  use2_variables = c('ci_bf_correct', 'ci_cc_correct', 'ci_nbsr_nkss_correct')
+  )
+
+mt_measures_ag
+  
+```
+
+more on understanding auc in mouse tracking:
+Direction of Movement: Positive AUC values typically indicate a smooth and efficient movement toward the target, while negative values might suggest less efficient or less direct movements. It's important to understand the specific directionality and meaning assigned to positive and negative values in your experimental setup.
+
+Decision-Making Dynamics: AUC in the context of a decision point between left and right buttons might also reflect decision-making dynamics. A higher (more positive) AUC could imply a more direct and confident decision, while a lower (more negative) AUC might indicate more hesitation or wavering in the decision process.
+
+Individual Differences: Participants with more consistent and efficient movements may have higher AUC values, while participants with more variable or less efficient movements may have lower AUC values.
+
+#trying to visualize the AUC scores
+```{r visualizing AUC scores}
+#making ggplor of AUC scores
+ggplot(mt_measures_ag, aes(x = interaction(ci_bf_correct, ci_cc_correct, ci_nbsr_nkss_correct), y = AUC)) +
+  geom_point() +
+  labs(x = "Conditions", y = "AUC Values") +
+  theme_minimal()
+
+#making barplot as well
+ggplot(mt_measures_ag, aes(x = interaction(ci_bf_correct, ci_cc_correct, ci_nbsr_nkss_correct), y = AUC)) +
+  geom_bar(stat = "summary", fun = "mean", position = "dodge", fill = "skyblue") +
+  labs(x = "Conditions", y = "Mean AUC Values") +
+  theme_minimal()
+```
+#making a new df with auc measures for all trials
+```{r df with auc}
+#df with AUC scores etc. 
+
+#new mousetracking df for predicting auc
+df_auc <- mt_measures(
+  mt_tn,
+  use = c('MAD', 'xpos_flips', 'AUC', 'RT')
+)
+
+df_auc <- mt_add_variables(
+  mt_tn, use = "trajectories", variables = 'AUC')
+
+head(df_auc)
+```
+
+#defining new formulas 
+```{r defining formulas for auc}
+formula8 <- brms::bf(AUC ~ ci_bf_correct + ci_cc_correct + ci_nbsr_nkss_correct)
+formula9 <- brms::bf(AUC ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_correct)
+formula10 <- brms::bf(AUC ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_correct + age)
+formula11 <- brms::bf(AUC ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_correct + gender)
+formula12 <- brms::bf(AUC ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_correct + gender + country)
+formula13 <- brms::bf(AUC ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_correct + gender + country + (1|subject_nr))
+formula14 <- brms::bf(AUC ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_correct + gender + country + initiation_time + (1 + initiation_time|subject_nr))
+
+```
+
+#defining priors for AUC predictions
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
