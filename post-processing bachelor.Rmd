@@ -1,6 +1,6 @@
 ---
-title: "Post-Processing"
-author: "Shiraz Ben Shoshan"
+title: "Bachelor Post-Processing"
+author: "Shiraz Ben Shoshan & Victoria Kanst Husted"
 date: "2023-12-10"
 output:
   html_document:
@@ -20,7 +20,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/data/')
+knitr::opts_knit$set(root.dir = '/Users/shirazbenshoshan/Desktop/Cognitive Science/VR Bachelor/bachelor_data')
 
 pacman::p_load(
   tidyverse,
@@ -37,194 +37,218 @@ pacman::p_load(
 ```{r loading in data}
 getwd()
 
-logfile_paths <- list.files(path = getwd(), pattern = "*\\.csv$", full.names = TRUE)
-
-df <- map_dfr(
-  logfile_paths,
-  read_csv)
+df <- read.csv("data.csv")
 
 ```
 
-## cleaning the data from irrelevant columns
 
-
-```{r cleaning the dataframe}
-
-df <- df %>% 
-  select(subject_nr, age, gender, nationality, initiation_time, left_image, right_image, response, response_time, timestamps_mouse_1, xpos_mouse_1, ypos_mouse_1)
-
-```
-
-## creating a new df based on the conditions response 
+## creating a new df based on the VR learning method & Furniture
 
 ```{r creating a new df}
-#creating a new column that gives the full image name for the chosen image
-#df_wc stands for df with conditions
-df_wc <- df %>%
-  mutate(chosen_image = ifelse(response == "left_button", left_image, right_image)) %>% 
-  mutate(unchosen_image = ifelse(response == "left_button", right_image, left_image))
 
-#fixing spelling mistake for denmark
-df_wc <- df_wc %>%
-  mutate(nationality = ifelse(nationality == "demark", "denmark", nationality))
+#creating df based on learning method
 
-#mutating country to be other in new column so its either denmark or other
-df_wc <- df_wc %>% 
-  mutate(country = ifelse(nationality == "denmark", "denmark", "other"))
+video_df <- df %>% 
+  filter(condition == "video")
 
-#creating new columns with correct conditions for the chosen image
-df_wc <- df_wc %>% 
-  mutate(ci_bf_correct = as.numeric(str_detect(chosen_image, "bf")),
-         ci_cc_correct = as.numeric(str_detect(chosen_image, "cc")),
-         ci_nbsr_nkss_correct = as.numeric(str_detect(chosen_image, "nk_ss|nb_sr")))
+meta_df <- df %>% 
+  filter(condition == "meta")
 
-#creating new columns with the correct conditions for the unchosen image for comparison
-df_wc <- df_wc %>% 
-  mutate(ui_bf_correct = as.numeric(str_detect(unchosen_image, "bf")),
-         ui_cc_correct = as.numeric(str_detect(unchosen_image, "cc")),
-         ui_nbsr_nkss_correct = as.numeric(str_detect(unchosen_image, "nk_ss|nb_sr")))  
+avp_df <- df %>% 
+  filter(condition == "apple")
 
+#creating a df based on furniture
+
+reol_df <- df %>% 
+  filter(furniture == "reol")
+
+bench_df <- df %>% 
+  filter(furniture == "bench")
+
+desk_df <- df %>% 
+  filter(furniture == "desk")
+
+```
+
+
+#creating dataframes with both furniture and learning method
+```{r}
+reol_video <- df %>% 
+  filter(condition == "video" & furniture == "reol")
+
+reol_meta <- df %>% 
+  filter(condition == "meta" & furniture == "reol")
+
+reol_avp <- df %>% 
+  filter(condition == "apple" & furniture == "reol")
+
+bench_video <- df %>% 
+  filter(condition == "video" & furniture == "bench")
+
+bench_meta <- df %>% 
+  filter(condition == "meta" & furniture == "bench")
+
+bench_avp <- df %>% 
+  filter(condition == "apple" & furniture == "bench")
+
+desk_video <- df %>% 
+  filter(condition == "video" & furniture == "desk")
+
+desk_meta <- df %>% 
+  filter(condition == "meta" & furniture == "desk")
+
+desk_avp <- df %>% 
+  filter(condition == "apple" & furniture == "desk")
 ```
 
 
 #creating summaries of the data
-```{r summary for bird condition}
-#plotting the raw data based on if the correct conditions were the ones chosen or unchosen
+```{r summary for all data}
+#plotting the time to build based on learning method
 
-#bird familiar condition - looking at the correct response
-# Create a summary data frame with counts of correct conditions in chosen and unchosen images
-bf_summary <- df_wc %>%
-  group_by(response) %>%
-  summarize(chosen_correct = sum(ci_bf_correct == 1),
-            chosen_incorrect = sum(ci_bf_correct == 0))
+#converting reol time to seconds
+df_post <- df %>%
+  # Process reol_time
+  mutate(
+    reol_time_parts = strsplit(as.character(reol_time), "\\."),
+    reol_minutes = as.numeric(sapply(reol_time_parts, `[`, 1)),
+    reol_seconds = as.numeric(sapply(reol_time_parts, `[`, 2)),
+    reol_milliseconds = as.numeric(sapply(reol_time_parts, `[`, 3)),
+    reol_time_seconds = reol_minutes * 60 + reol_seconds + reol_milliseconds / 1000
+  ) %>%
+  # Process bench_time
+  mutate(
+    bench_time_parts = strsplit(as.character(bench_time), "\\."),
+    bench_minutes = as.numeric(sapply(bench_time_parts, `[`, 1)),
+    bench_seconds = as.numeric(sapply(bench_time_parts, `[`, 2)),
+    bench_milliseconds = as.numeric(sapply(bench_time_parts, `[`, 3)),
+    bench_time_seconds = bench_minutes * 60 + bench_seconds + bench_milliseconds / 1000
+  ) %>%
+  # Process desk_time
+  mutate(
+    desk_time_parts = strsplit(as.character(desk_time), "\\."),
+    desk_minutes = as.numeric(sapply(desk_time_parts, `[`, 1)),
+    desk_seconds = as.numeric(sapply(desk_time_parts, `[`, 2)),
+    desk_milliseconds = as.numeric(sapply(desk_time_parts, `[`, 3)),
+    desk_time_seconds = desk_minutes * 60 + desk_seconds + desk_milliseconds / 1000
+  )
 
-print(bf_summary)
+df_final<- df_post %>% 
+  select(-c(reol_time_parts, reol_minutes, reol_seconds, reol_milliseconds, bench_time_parts, bench_minutes, bench_seconds, bench_milliseconds, desk_time_parts, desk_minutes, desk_seconds, desk_milliseconds )) 
 
-#looking at response time
-bf_rt_summary <- df_wc %>%
-  group_by(ci_bf_correct) %>%
-  summarize(mean_response_time = mean(response_time, na.rm = TRUE))
+# Create a summary data frame with time to build based on condition
+df_summary_time <- df_final %>%
+  group_by(condition) %>%
+  summarize(reol_time = mean(reol_time_seconds, na.rm = TRUE),
+            bench_time = mean(bench_time_seconds, na.rm = TRUE),
+            desk_time = mean(desk_time_seconds, na.rm = TRUE))
 
-print(bf_rt_summary)
+#looking at accuracy
+df_summary_acc <- df_final %>%
+  group_by(condition) %>%
+  summarize(reol_errors = mean(reol_error[reol_error != 0], na.rm = TRUE),
+            bench_errors = mean(bench_error[bench_error != 0], na.rm = TRUE),
+            desk_errors = mean(desk_error[desk_error != 0], na.rm = TRUE))
 
-#grouped by age
-bf_age <- df_wc %>%
-  group_by(age) %>%
-  summarize(chosen_correct = sum(ci_bf_correct == 1),
-            chosen_incorrect = sum(ci_bf_correct == 0))
+#summary of enjoyment
+df_summary_enjoyment <- df_final %>%
+  summarize(video_enjoyment = mean(enjoy_video, na.rm = TRUE),
+            meta_enjoyment = mean(enjoy_meta, na.rm = TRUE),
+            apple_enjoyment = mean(enjoy_apple, na.rm = TRUE))
 
-print(bf_age)
+#summary of concentration
+df_summary_concentration <- df_final %>%
+  summarize(video_conc = mean(conc_video, na.rm = TRUE),
+            meta_conc = mean(conc_meta, na.rm = TRUE),
+            apple_conc = mean(conc_apple, na.rm = TRUE))
 
-#grouped by gender
-bf_gender <- df_wc %>%
-  group_by(gender) %>%
-  summarize(chosen_correct = sum(ci_bf_correct == 1),
-            chosen_incorrect = sum(ci_bf_correct == 0))
-
-print(bf_gender)
-
-#grouped by nationality
-bf_nationality <- df_wc %>%
-  group_by(nationality) %>%
-  summarize(chosen_correct = sum(ci_bf_correct == 1),
-            chosen_incorrect = sum(ci_bf_correct == 0))
-
-print(bf_nationality)
-```
-
-```{r summary for color condition}
-#color condition 
-# Create a summary data frame with counts of correct conditions in chosen and unchosen images
-cc_summary <- df_wc %>%
-  group_by(response) %>%
-  summarize(chosen_correct = sum(ci_cc_correct == 1),
-            chosen_incorrect = sum(ci_cc_correct == 0))
-
-print(cc_summary)
-
-#looking at response time
-cc_rt_summary <- df_wc %>%
-  group_by(ci_cc_correct) %>%
-  summarize(mean_response_time = mean(response_time, na.rm = TRUE))
-
-print(cc_rt_summary)
-
-#grouped by age
-cc_age <- df_wc %>%
-  group_by(age) %>%
-  summarize(chosen_correct = sum(ci_cc_correct == 1),
-            chosen_incorrect = sum(ci_cc_correct == 0))
-
-print(cc_age)
-
-#grouped by gender
-cc_gender <- df_wc %>%
-  group_by(gender) %>%
-  summarize(chosen_correct = sum(ci_cc_correct == 1),
-            chosen_incorrect = sum(ci_cc_correct == 0))
-
-print(bf_gender)
-
-#grouped by nationality
-cc_nationality <- df_wc %>%
-  group_by(nationality) %>%
-  summarize(chosen_correct = sum(ci_cc_correct == 1),
-            chosen_incorrect = sum(ci_cc_correct == 0))
-
-print(cc_nationality)
+print(df_summary_time)
+print(df_summary_acc)
+print(df_summary_enjoyment)
+print(df_summary_concentration)
 
 ```
-```{r summary for kiki-bouba condition}
-#kiki bouba condition
-nb_sr_summary <- df_wc %>%
-  group_by(response) %>%
-  summarize(chosen_correct = sum(ci_nbsr_nkss_correct == 1),
-            chosen_incorrect = sum(ci_nbsr_nkss_correct == 0))
 
-print(nb_sr_summary)
+```{r visualizations}
+#making plots to visualize the data
 
-nb_sr_rt_summary <- df_wc %>%
-  group_by(ci_nbsr_nkss_correct) %>%
-  summarize(mean_response_time = mean(response_time, na.rm = TRUE))
+#combining all times to use in graph
+df_final <- df_final %>% 
+  mutate(
+    trial_time_seconds = coalesce(reol_time_seconds, bench_time_seconds, desk_time_seconds)
+  )
 
-print(nb_sr_rt_summary)
+#making time plot
+time_plot <- df_final %>% 
+  ggplot(aes(x = condition, y = trial_time_seconds, fill = condition)) +
+    facet_wrap(~furniture) + #faceting by furniture for clarity
+    geom_bar(stat = 'summary', fun = mean, width = 0.75)+
+    geom_errorbar(stat = "summary", fun.data = "mean_se", width = 0.1) + #adding error bars and necessary information to plot graph
+    labs(x = "Learning Method", y = "Time Taken To Assemble (s)") +
+    ggtitle("Affect of Learning Method on Assembly Time") +
+    scale_fill_manual(values = c("#68758E", "#FEDFAB", "#E6A483"))
 
-#grouped by age
-nb_sr_age <- df_wc %>%
-  group_by(age) %>%
-  summarize(chosen_correct = sum(ci_nbsr_nkss_correct == 1),
-            chosen_incorrect = sum(ci_nbsr_nkss_correct == 0))
-
-print(nb_sr_age)
-
-#grouped by gender
-nb_sr_gender <- df_wc %>%
-  group_by(gender) %>%
-  summarize(chosen_correct = sum(ci_nbsr_nkss_correct == 1),
-            chosen_incorrect = sum(ci_nbsr_nkss_correct == 0))
-
-print(nb_sr_gender)
-
-#grouped by nationality
-nb_sr_nationality <- df_wc %>%
-  group_by(nationality) %>%
-  summarize(chosen_correct = sum(ci_nbsr_nkss_correct == 1),
-            chosen_incorrect = sum(ci_nbsr_nkss_correct == 0))
-
-print(nb_sr_nationality)
+time_plot
 ```
+#plotting accuracy
+```{r}
+#combining all accuracy to use in graph
+df_final <- df_final %>%
+  mutate(
+    trial_accuracy = case_when(
+      reol_error != 0 ~ reol_error,  # Use reol_error if it's not 0
+      bench_error != 0 ~ bench_error,  # Use bench_error if reol_error is 0
+      desk_error != 0 ~ desk_error,  # Use desk_error if both previous are 0
+      TRUE ~ 0  # If all are 0, set to 0
+    )
+  )
+
+#making accuracy plot
+accuracy_plot <- df_final %>% 
+  ggplot(aes(x = condition, y = trial_accuracy, fill = condition)) +
+    facet_wrap(~furniture) + #faceting by furniture for clarity
+    geom_bar(stat = 'summary', fun = mean, width = 0.75)+
+    geom_errorbar(stat = "summary", fun.data = "mean_se", width = 0.1) + #adding error bars and necessary information to plot graph
+    labs(x = "Learning Method", y = "Accuracy of Task") +
+    ggtitle("Affect of Learning Method on Task Accuracy") +
+    scale_fill_manual(values = c("#68758E", "#FEDFAB", "#E6A483"))
+
+accuracy_plot
+```
+
+#renaming ikea skills to be in levels
+```{r}
+#changing ikea skills to following key:
+#below = 1
+#average = 2
+#above = 3
+
+df_final <- df_final %>% 
+  mutate(ikea_skills = recode(ikea_skills,
+                              "below" = 1,
+                              "average" = 2,
+                              "above" = 3))
+
+#fixing n.a which appeared in row 10
+df_final <- df_final %>%
+  mutate(ikea_skills = if_else(row_number() == 10 & is.na(ikea_skills), 2, ikea_skills))
+```
+
 
 #creating models for the comparison of the different conditions
 ```{r creating formulas}
-#creating my formulas 
+#creating my formulas for time
 
-formula1 <- brms::bf(response_time ~ ci_bf_correct + ci_cc_correct + ci_nbsr_nkss_correct)
-formula2 <- brms::bf(response_time ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_correct)
-formula3 <- brms::bf(response_time ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_correct + age)
-formula4 <- brms::bf(response_time ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_correct + gender)
-formula5 <- brms::bf(response_time ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_correct + gender + country)
-formula6 <- brms::bf(response_time ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_correct + gender + country + (1|subject_nr))
-formula7 <- brms::bf(response_time ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_correct + gender + country + initiation_time + (1 + initiation_time|subject_nr))
+formula1 <- brms::bf(trial_time_seconds ~ condition + furniture)
+formula2 <- brms::bf(trial_time_seconds ~ condition + furniture + trial_number)
+formula3 <- brms::bf(trial_time_seconds ~ condition + furniture + trial_number + sex)
+formula4 <- brms::bf(trial_time_seconds ~ condition + furniture + ikea_skills + vr_experience)
+formula5 <- brms::bf(trial_time_seconds ~ condition + furniture + trial_number + ikea_skills + vr_experience)
+formula6 <- brms::bf(trial_time_seconds ~ condition * furniture + trial_number + ikea_skills + vr_experience)
+formula7 <- brms::bf(trial_time_seconds ~ condition + furniture + trial_number + ikea_skills + vr_experience + (1| participant_id))
+formula8 <- brms::bf(trial_time_seconds ~ condition * furniture + trial_number + ikea_skills + vr_experience + (1| participant_id))
+formula9 <- brms::bf(trial_time_seconds ~ condition + furniture + trial_number + ikea_skills + vr_experience + (trial_number| participant_id))
+formula10 <- brms::bf(trial_time_seconds ~ condition * furniture + trial_number + ikea_skills + vr_experience + (trial_number| participant_id))
 
 
 ```
@@ -235,104 +259,173 @@ formula7 <- brms::bf(response_time ~ ci_bf_correct*ci_cc_correct*ci_nbsr_nkss_co
 pacman::p_load("sjstats")
 
 #formula 1
-get_prior(formula1,df_wc)
-sjstats::auto_prior(formula1, df_wc, gaussian = T)
+get_prior(formula1,df_final)
 priors1 <- c(
-  prior(normal(0, 11718.7), class = Intercept, lb = 0),
-  prior(normal(0, 6563.89), class = b, coef = ci_bf_correct),
-  prior(normal(0,5860.86), class = b, coef = ci_cc_correct),
-  prior(normal(0, 5859.44), class = b, coef = ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = sigma, lb = 0)
+  prior(student_t(3, 900, 424.8), class = Intercept, lb = 0),
+  prior(normal(0, 1), class = b, coef = conditionmeta),
+  prior(normal(0, 1), class = b, coef = conditionvideo),
+  prior(normal(0, 1), class = b, coef = furnituredesk),
+  prior(normal(0, 1), class = b, coef = furniturereol),
+  prior(student_t(3, 0, 424.8), class = sigma, lb = 0)
 )
 
 #formula 2
-get_prior(formula2,df_wc)
-sjstats::auto_prior(formula2, df_wc, gaussian = T)
+get_prior(formula2,df_final)
 priors2 <- c(
-  prior(normal(0, 11718.7), class = Intercept, lb = 0),
-  prior(normal(0, 6563.89), class = b, coef = ci_bf_correct),
-  prior(normal(0,5860.86), class = b, coef = ci_cc_correct),
-  prior(normal(0, 5859.44), class = b, coef = ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct),
-  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct:ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = b, coef = ci_cc_correct:ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = sigma, lb = 0)
+  prior(student_t(3, 900, 424.8), class = Intercept, lb = 0),
+  prior(normal(0, 1), class = b, coef = conditionmeta),
+  prior(normal(0, 1), class = b, coef = conditionvideo),
+  prior(normal(0, 1), class = b, coef = furnituredesk),
+  prior(normal(0, 1), class = b, coef = furniturereol),
+  prior(normal(0, 1), class = b, coef = trial_number),
+  prior(student_t(3, 0, 424.8), class = sigma, lb = 0)
 )
 
 #formula 3
-get_prior(formula3,df_wc)
-sjstats::auto_prior(formula3, df_wc, gaussian = T)
+get_prior(formula3,df_final)
 priors3 <- c(
-  prior(normal(0, 11718.7), class = Intercept, lb = 0),
-  prior(normal(0, 6563.89), class = b, coef = ci_bf_correct),
-  prior(normal(0,5860.86), class = b, coef = ci_cc_correct),
-  prior(normal(0, 5859.44), class = b, coef = ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct),
-  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct:ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = b, coef = ci_cc_correct:ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = sigma, lb = 0)
+  prior(student_t(3, 900, 424.8), class = Intercept, lb = 0),
+  prior(normal(0, 1), class = b, coef = conditionmeta),
+  prior(normal(0, 1), class = b, coef = conditionvideo),
+  prior(normal(0, 1), class = b, coef = furnituredesk),
+  prior(normal(0, 1), class = b, coef = furniturereol),
+  prior(normal(0, 1), class = b, coef = sexM),
+  prior(normal(0, 1), class = b, coef = trial_number),
+  prior(student_t(3, 0, 424.8), class = sigma, lb = 0)
 )
 
 #formula 4
-get_prior(formula4,df_wc)
-sjstats::auto_prior(formula4, df_wc, gaussian = T)
+get_prior(formula4,df_final)
 priors4 <- c(
-  prior(normal(0, 11718.7), class = Intercept, lb = 0),
-  prior(normal(0, 6563.89), class = b, coef = ci_bf_correct),
-  prior(normal(0,5860.86), class = b, coef = ci_cc_correct),
-  prior(normal(0, 5859.44), class = b, coef = ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct),
-  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct:ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = b, coef = ci_cc_correct:ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = sigma, lb = 0)
+  prior(student_t(3, 900, 424.8), class = Intercept, lb = 0),
+  prior(normal(0, 1), class = b, coef = conditionmeta),
+  prior(normal(0, 1), class = b, coef = conditionvideo),
+  prior(normal(0, 1), class = b, coef = furnituredesk),
+  prior(normal(0, 1), class = b, coef = furniturereol),
+  prior(normal(0, 1), class = b, coef = ikea_skills),
+  prior(normal(0, 1), class = b, coef = vr_experiencenone),
+  prior(normal(0, 1), class = b, coef = vr_experiencesome),
+  prior(student_t(3, 0, 424.8), class = sigma, lb = 0)
 )
 
 #formula 5
-get_prior(formula5,df_wc)
-sjstats::auto_prior(formula5, df_wc, gaussian = T)
+get_prior(formula5,df_final)
 priors5 <- c(
-  prior(normal(0, 11718.7), class = Intercept, lb = 0),
-  prior(normal(0, 6563.89), class = b, coef = ci_bf_correct),
-  prior(normal(0,5860.86), class = b, coef = ci_cc_correct),
-  prior(normal(0, 5859.44), class = b, coef = ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct),
-  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct:ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = b, coef = ci_cc_correct:ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = sigma, lb = 0)
+  prior(student_t(3, 900, 424.8), class = Intercept, lb = 0),
+  prior(normal(0, 1), class = b, coef = conditionmeta),
+  prior(normal(0, 1), class = b, coef = conditionvideo),
+  prior(normal(0, 1), class = b, coef = furnituredesk),
+  prior(normal(0, 1), class = b, coef = furniturereol),
+  prior(normal(0, 1), class = b, coef = ikea_skills),
+  prior(normal(0, 1), class = b, coef = trial_number),
+  prior(normal(0, 1), class = b, coef = vr_experiencenone),
+  prior(normal(0, 1), class = b, coef = vr_experiencesome),
+  prior(student_t(3, 0, 424.8), class = sigma, lb = 0)
 )
 
 #formula 6
-get_prior(formula6,df_wc)
-sjstats::auto_prior(formula6, df_wc, gaussian = T)
+get_prior(formula6,df_final)
 priors6 <- c(
-  prior(normal(0, 11718.7), class = Intercept, lb = 0),
-  prior(normal(0, 6563.89), class = b, coef = ci_bf_correct),
-  prior(normal(0, 5860.86), class = b, coef = ci_cc_correct),
-  prior(normal(0, 5859.44), class = b, coef = ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct),
-  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct:ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = b, coef = ci_cc_correct:ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = sigma, lb = 0)
+  prior(student_t(3, 900, 424.8), class = Intercept, lb = 0),
+  prior(normal(0, 1), class = b, coef = conditionmeta),
+  prior(normal(0, 1), class = b, coef = conditionmeta:furnituredesk),
+  prior(normal(0, 1), class = b, coef = conditionmeta:furniturereol),
+  prior(normal(0, 1), class = b, coef = conditionvideo),
+  prior(normal(0, 1), class = b, coef = conditionvideo:furnituredesk),
+  prior(normal(0, 1), class = b, coef = conditionvideo:furniturereol),
+  prior(normal(0, 1), class = b, coef = furnituredesk),
+  prior(normal(0, 1), class = b, coef = furniturereol),
+  prior(normal(0, 1), class = b, coef = ikea_skills),
+  prior(normal(0, 1), class = b, coef = trial_number),
+  prior(normal(0, 1), class = b, coef = vr_experiencenone),
+  prior(normal(0, 1), class = b, coef = vr_experiencesome),
+  prior(student_t(3, 0, 424.8), class = sigma, lb = 0)
 )
 
 #formula 7
-get_prior(formula7,df_wc)
-sjstats::auto_prior(formula7, df_wc, gaussian = FALSE)
+get_prior(formula7,df_final)
 priors7 <- c(
-  prior(normal(0, 11718.7), class = Intercept, lb = 0),
-  prior(normal(0, 6563.89), class = b, coef = ci_bf_correct),
-  prior(normal(0, 5860.86), class = b, coef = ci_cc_correct),
-  prior(normal(0, 5859.44), class = b, coef = ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct),
-  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_cc_correct:ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = b, coef = ci_bf_correct:ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = b, coef = ci_cc_correct:ci_nbsr_nkss_correct),
-  prior(normal(0, 1), class = sigma, lb = 0)
+  prior(student_t(3, 900, 424.8), class = Intercept, lb = 0),
+  prior(normal(0, 1), class = b, coef = conditionmeta),
+  prior(normal(0, 1), class = b, coef = conditionvideo),
+  prior(normal(0, 1), class = b, coef = furnituredesk),
+  prior(normal(0, 1), class = b, coef = furniturereol),
+  prior(normal(0, 1), class = b, coef = ikea_skills),
+  prior(normal(0, 1), class = b, coef = trial_number),
+  prior(normal(0, 1), class = b, coef = vr_experiencenone),
+  prior(normal(0, 1), class = b, coef = vr_experiencesome),
+  prior(student_t(3, 0, 424.8), class = sigma, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, group = participant_id, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, coef = Intercept, group = participant_id, lb = 0)
+)
+
+#formula 8
+get_prior(formula8,df_final)
+priors8 <- c(
+  prior(student_t(3, 900, 424.8), class = Intercept, lb = 0),
+  prior(normal(0, 1), class = b, coef = conditionmeta),
+  prior(normal(0, 1), class = b, coef = conditionmeta:furnituredesk),
+  prior(normal(0, 1), class = b, coef = conditionmeta:furniturereol),
+  prior(normal(0, 1), class = b, coef = conditionvideo),
+  prior(normal(0, 1), class = b, coef = conditionvideo:furnituredesk),
+  prior(normal(0, 1), class = b, coef = conditionvideo:furniturereol),
+  prior(normal(0, 1), class = b, coef = furnituredesk),
+  prior(normal(0, 1), class = b, coef = furniturereol),
+  prior(normal(0, 1), class = b, coef = ikea_skills),
+  prior(normal(0, 1), class = b, coef = trial_number),
+  prior(normal(0, 1), class = b, coef = vr_experiencenone),
+  prior(normal(0, 1), class = b, coef = vr_experiencesome),
+  prior(student_t(3, 0, 424.8), class = sigma, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, group = participant_id, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, coef = Intercept, group = participant_id, lb = 0)
+)
+
+#formula 9
+get_prior(formula9,df_final)
+priors9 <- c(
+  prior(student_t(3, 900, 424.8), class = Intercept, lb = 0),
+  prior(normal(0, 1), class = b, coef = conditionmeta),
+  prior(normal(0, 1), class = b, coef = conditionvideo),
+  prior(normal(0, 1), class = b, coef = furnituredesk),
+  prior(normal(0, 1), class = b, coef = furniturereol),
+  prior(normal(0, 1), class = b, coef = ikea_skills),
+  prior(normal(0, 1), class = b, coef = trial_number),
+  prior(normal(0, 1), class = b, coef = vr_experiencenone),
+  prior(normal(0, 1), class = b, coef = vr_experiencesome),
+  prior(lkj(1), class = cor),
+  prior(lkj(1), class = cor, group = participant_id),
+  prior(student_t(3, 0, 424.8), class = sigma, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, group = participant_id, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, coef = Intercept, group = participant_id, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, coef = trial_number, group = participant_id, lb = 0)
+)
+
+#formula 10
+get_prior(formula10,df_final)
+priors10 <- c(
+  prior(student_t(3, 900, 424.8), class = Intercept, lb = 0),
+  prior(normal(0, 1), class = b, coef = conditionmeta),
+  prior(normal(0, 1), class = b, coef = conditionmeta:furnituredesk),
+  prior(normal(0, 1), class = b, coef = conditionmeta:furniturereol),
+  prior(normal(0, 1), class = b, coef = conditionvideo),
+  prior(normal(0, 1), class = b, coef = conditionvideo:furnituredesk),
+  prior(normal(0, 1), class = b, coef = conditionvideo:furniturereol),
+  prior(normal(0, 1), class = b, coef = furnituredesk),
+  prior(normal(0, 1), class = b, coef = furniturereol),
+  prior(normal(0, 1), class = b, coef = ikea_skills),
+  prior(normal(0, 1), class = b, coef = trial_number),
+  prior(normal(0, 1), class = b, coef = vr_experiencenone),
+  prior(normal(0, 1), class = b, coef = vr_experiencesome),
+  prior(lkj(1), class = cor),
+  prior(lkj(1), class = cor, group = participant_id),
+  prior(student_t(3, 0, 424.8), class = sigma, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, group = participant_id, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, coef = Intercept, group = participant_id, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, coef = trial_number, group = participant_id, lb = 0)
 )
 
 ```
@@ -341,11 +434,11 @@ priors7 <- c(
 ```{r predictive checking}
 model1_prior <- brm(
   formula1,
-  df_wc,
+  df_final,
   family = gaussian,
   prior = priors1,
   sample_prior = "only",
-  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model1_prior',
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/VR Bachelor/bachelor_data/models/model1_prior',
   backend = "cmdstanr",
   chains = 8,
   cores = 8,
@@ -354,11 +447,11 @@ model1_prior <- brm(
 
 model2_prior <- brm(
   formula2,
-  df_wc,
+  df_final,
   family = gaussian,
   prior = priors2,
   sample_prior = "only",
-  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model2_prior',
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/VR Bachelor/bachelor_data/models/model2_prior',
   backend = "cmdstanr",
   chains = 8,
   cores = 8,
@@ -367,11 +460,11 @@ model2_prior <- brm(
 
 model3_prior <- brm(
   formula3,
-  df_wc,
+  df_final,
   family = gaussian,
   prior = priors3,
   sample_prior = "only",
-  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model3_prior',
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/VR Bachelor/bachelor_data/models/model3_prior',
   backend = "cmdstanr",
   chains = 8,
   cores = 8,
@@ -380,11 +473,11 @@ model3_prior <- brm(
 
 model4_prior <- brm(
   formula4,
-  df_wc,
+  df_final,
   family = gaussian,
   prior = priors4,
   sample_prior = "only",
-  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model4_prior',
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/VR Bachelor/bachelor_data/models/model4_prior',
   backend = "cmdstanr",
   chains = 8,
   cores = 8,
@@ -393,11 +486,11 @@ model4_prior <- brm(
 
 model5_prior <- brm(
   formula5,
-  df_wc,
+  df_final,
   family = gaussian,
   prior = priors5,
   sample_prior = "only",
-  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model5_prior',
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/VR Bachelor/bachelor_data/models/model5_prior',
   backend = "cmdstanr",
   chains = 8,
   cores = 8,
@@ -406,11 +499,11 @@ model5_prior <- brm(
 
 model6_prior <- brm(
   formula6,
-  df_wc,
+  df_final,
   family = gaussian,
   prior = priors6,
   sample_prior = "only",
-  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model6_prior',
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/VR Bachelor/bachelor_data/models/model6_prior',
   backend = "cmdstanr",
   chains = 8,
   cores = 8,
@@ -419,11 +512,50 @@ model6_prior <- brm(
 
 model7_prior <- brm(
   formula7,
-  df_wc,
+  df_final,
   family = gaussian,
   prior = priors7,
   sample_prior = "only",
-  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/Perception and Action Exam Research/PA_Exam_R/models/model7_prior',
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/VR Bachelor/bachelor_data/models/model7_prior',
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  seed = 112
+)
+
+model8_prior <- brm(
+  formula8,
+  df_final,
+  family = gaussian,
+  prior = priors8,
+  sample_prior = "only",
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/VR Bachelor/bachelor_data/models/model8_prior',
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  seed = 112
+)
+
+model9_prior <- brm(
+  formula9,
+  df_final,
+  family = gaussian,
+  prior = priors9,
+  sample_prior = "only",
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/VR Bachelor/bachelor_data/models/model9_prior',
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  seed = 112
+)
+
+model10_prior <- brm(
+  formula10,
+  df_final,
+  family = gaussian,
+  prior = priors10,
+  sample_prior = "only",
+  file = '/Users/shirazbenshoshan/Desktop/Cognitive Science/VR Bachelor/bachelor_data/models/model10_prior',
   backend = "cmdstanr",
   chains = 8,
   cores = 8,
@@ -437,6 +569,9 @@ prior_predictive4 <- pp_check(model4_prior, ndraws = 100)
 prior_predictive5 <- pp_check(model5_prior, ndraws = 100)
 prior_predictive6 <- pp_check(model6_prior, ndraws = 100)
 prior_predictive7 <- pp_check(model7_prior, ndraws = 100)
+prior_predictive8 <- pp_check(model8_prior, ndraws = 100)
+prior_predictive9 <- pp_check(model9_prior, ndraws = 100)
+prior_predictive10 <- pp_check(model10_prior, ndraws = 100)
 
 
 prior_predictive1 + xlim(c(-1000, 30000)) 
@@ -446,6 +581,9 @@ prior_predictive4 + xlim(c(-1000, 30000))
 prior_predictive5 + xlim(c(-1000, 30000)) 
 prior_predictive6 + xlim(c(-1000, 30000)) 
 prior_predictive7 + xlim(c(-1000, 30000))
+prior_predictive8 + xlim(c(-1000, 30000))
+prior_predictive9 + xlim(c(-1000, 30000))
+prior_predictive10 + xlim(c(-1000, 30000))
 ```
 #fitting the models
 ```{r model fitting}
