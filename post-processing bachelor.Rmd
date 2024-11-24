@@ -178,21 +178,49 @@ df_final <- df_final %>%
     trial_time_seconds = coalesce(reol_time_seconds, bench_time_seconds, desk_time_seconds)
   )
 
+df_rename <- df_final %>%
+  mutate(condition = recode(
+    condition,
+    video = "Video (NI)",
+    meta = "VR (CI)",
+    apple = "VR (HFI)"
+  ))
+
 #making time plot
-time_plot <- df_final %>% 
+time_plot <- df_rename %>% 
   ggplot(aes(x = condition, y = trial_time_seconds, fill = condition)) +
     facet_wrap(~furniture) + #faceting by furniture for clarity
     geom_bar(stat = 'summary', fun = mean, width = 0.75)+
     geom_errorbar(stat = "summary", fun.data = "mean_se", width = 0.1) + #adding error bars and necessary information to plot graph
     labs(x = "Learning Method", y = "Time Taken To Assemble (s)") +
     ggtitle("Affect of Learning Method on Assembly Time") +
-    scale_fill_manual(values = c("#68758E", "#FEDFAB", "#E6A483"))
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 15)) + # Wrap text
+    theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+     scale_fill_manual(
+      values = c("#68758E", "#FEDFAB", "#E6A483"),  # Colors for each condition
+      name = "Learning Condition",                 # Legend title
+      labels = c("Video (No Interaction)", "VR (Controller Interaction)", "VR (Hands Free Interaction)")  # Custom legend labels
+    ) +
+    theme(
+      legend.position = "right",  # Position of the legend
+      legend.title = element_text(size = 8),  # Customize legend title size
+      legend.text = element_text(size = 6))  # Customize legend text size
 
 time_plot
 ```
 #plotting accuracy
 ```{r}
 #combining all accuracy to use in graph
+df_rename <- df_rename %>%
+  mutate(
+    trial_accuracy = case_when(
+      reol_error != 0 ~ reol_error,  # Use reol_error if it's not 0
+      bench_error != 0 ~ bench_error,  # Use bench_error if reol_error is 0
+      desk_error != 0 ~ desk_error,  # Use desk_error if both previous are 0
+      TRUE ~ 0  # If all are 0, set to 0
+    )
+  )
+
 df_final <- df_final %>%
   mutate(
     trial_accuracy = case_when(
@@ -204,14 +232,25 @@ df_final <- df_final %>%
   )
 
 #making accuracy plot
-accuracy_plot <- df_final %>% 
+accuracy_plot <- df_rename %>% 
   ggplot(aes(x = condition, y = trial_accuracy, fill = condition)) +
     facet_wrap(~furniture) + #faceting by furniture for clarity
     geom_bar(stat = 'summary', fun = mean, width = 0.75)+
     geom_errorbar(stat = "summary", fun.data = "mean_se", width = 0.1) + #adding error bars and necessary information to plot graph
     labs(x = "Learning Method", y = "Accuracy of Task") +
     ggtitle("Affect of Learning Method on Task Accuracy") +
-    scale_fill_manual(values = c("#68758E", "#FEDFAB", "#E6A483"))
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 15)) + # Wrap text
+    theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+     scale_fill_manual(
+      values = c("#68758E", "#FEDFAB", "#E6A483"),  # Colors for each condition
+      name = "Learning Condition",                 # Legend title
+      labels = c("Video (No Interaction)", "VR (Controller Interaction)", "VR (Hands Free Interaction)")  # Custom legend labels
+    ) +
+    theme(
+      legend.position = "right",  # Position of the legend
+      legend.title = element_text(size = 8),  # Customize legend title size
+      legend.text = element_text(size = 6))  # Customize legend text size
+
 
 accuracy_plot
 ```
@@ -248,7 +287,11 @@ df_final <- df_final %>%
 #creating my formulas for time
 
 formula1 <- brms::bf(trial_time_seconds ~ condition + furniture)
+formula1.1 <- brms::bf(trial_time_seconds ~ condition + (1| participant_id))
+formula1.2 <- brms::bf(trial_time_seconds ~ condition + furniture + (1| participant_id))
+formula1.3 <- brms::bf(trial_time_seconds ~ condition + vr_experience + (1| participant_id))
 formula2 <- brms::bf(trial_time_seconds ~ condition + furniture + trial_number)
+formula2.2 <- brms::bf(trial_time_seconds ~ condition + furniture + trial_number + (1| participant_id))
 formula3 <- brms::bf(trial_time_seconds ~ condition + furniture + trial_number + sex)
 formula4 <- brms::bf(trial_time_seconds ~ condition + furniture + ikea_skills + vr_experience)
 formula5 <- brms::bf(trial_time_seconds ~ condition + furniture + trial_number + ikea_skills + vr_experience)
@@ -258,8 +301,8 @@ formula8 <- brms::bf(trial_time_seconds ~ condition * furniture + trial_number +
 formula9 <- brms::bf(trial_time_seconds ~ condition + furniture + trial_number + ikea_skills + vr_experience + (trial_number| participant_id))
 formula10 <- brms::bf(trial_time_seconds ~ condition * furniture + trial_number + ikea_skills + vr_experience + (trial_number| participant_id))
 
-
 ```
+
 
 #getting priors for all formulas
 ```{r getting priors}
@@ -277,6 +320,43 @@ priors1 <- c(
   prior(student_t(3, 0, 424.8), class = sigma, lb = 0)
 )
 
+#formula 1.1
+get_prior(formula1.1,df_final)
+priors1.1 <- c(
+  prior(student_t(3, 900, 424.8), class = Intercept, lb = 0),
+  prior(normal(0, 1), class = b, coef = conditionapple),
+  prior(normal(0, 1), class = b, coef = conditionmeta),
+  prior(student_t(3, 0, 424.8), class = sigma, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, group = participant_id, lb = 0)
+)
+
+#formula 1.2
+get_prior(formula1.2,df_final)
+priors1.2 <- c(
+  prior(student_t(3, 900, 424.8), class = Intercept, lb = 0),
+  prior(normal(0, 1), class = b, coef = conditionapple),
+  prior(normal(0, 1), class = b, coef = conditionmeta),
+  prior(normal(0, 1), class = b, coef = furniturebench),
+  prior(normal(0, 1), class = b, coef = furniturereol),
+  prior(student_t(3, 0, 424.8), class = sigma, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, group = participant_id, lb = 0)
+)
+
+#formula 1.3
+get_prior(formula1.3,df_final)
+priors1.3 <- c(
+  prior(student_t(3, 900, 424.8), class = Intercept, lb = 0),
+  prior(normal(0, 1), class = b, coef = conditionapple),
+  prior(normal(0, 1), class = b, coef = conditionmeta),
+  prior(normal(0, 1), class = b, coef = vr_experiencemuch),
+  prior(normal(0, 1), class = b, coef = vr_experiencesome),
+  prior(student_t(3, 0, 424.8), class = sigma, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, group = participant_id, lb = 0)
+)
+
 #formula 2
 get_prior(formula2,df_final)
 priors2 <- c(
@@ -287,6 +367,20 @@ priors2 <- c(
   prior(normal(0, 1), class = b, coef = furniturereol),
   prior(normal(0, 1), class = b, coef = trial_number),
   prior(student_t(3, 0, 424.8), class = sigma, lb = 0)
+)
+
+#formula 2.2
+get_prior(formula2.2,df_final)
+priors2.2 <- c(
+  prior(student_t(3, 900, 424.8), class = Intercept, lb = 0),
+  prior(normal(0, 1), class = b, coef = conditionapple),
+  prior(normal(0, 1), class = b, coef = conditionmeta),
+  prior(normal(0, 1), class = b, coef = furniturebench),
+  prior(normal(0, 1), class = b, coef = furniturereol),
+  prior(normal(0, 1), class = b, coef = trial_number),
+  prior(student_t(3, 0, 424.8), class = sigma, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, lb = 0),
+  prior(student_t(3, 0, 424.8), class = sd, group = participant_id, lb = 0)
 )
 
 #formula 3
@@ -454,6 +548,45 @@ model1_prior <- brm(
   seed = 112
 )
 
+model1.1_prior <- brm(
+  formula1.1,
+  df_final,
+  family = gaussian,
+  prior = priors1.1,
+  sample_prior = "only",
+  file = '~/Desktop/model1.1_prior',
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  seed = 112
+)
+
+model1.2_prior <- brm(
+  formula1.2,
+  df_final,
+  family = gaussian,
+  prior = priors1.2,
+  sample_prior = "only",
+  file = '~/Desktop/model1.2_prior',
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  seed = 112
+)
+
+model1.3_prior <- brm(
+  formula1.3,
+  df_final,
+  family = gaussian,
+  prior = priors1.3,
+  sample_prior = "only",
+  file = '~/Desktop/model1.3_prior',
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  seed = 112
+)
+
 model2_prior <- brm(
   formula2,
   df_final,
@@ -461,6 +594,19 @@ model2_prior <- brm(
   prior = priors2,
   sample_prior = "only",
   file = '~/Desktop/model2_prior',
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  seed = 112
+)
+
+model2.2_prior <- brm(
+  formula2.2,
+  df_final,
+  family = gaussian,
+  prior = priors2.2,
+  sample_prior = "only",
+  file = '~/Desktop/model2.2_prior',
   backend = "cmdstanr",
   chains = 8,
   cores = 8,
@@ -614,6 +760,60 @@ model1 <- brm(
   save_all_pars = TRUE
   )
 
+model1.1 <- brm(
+  formula1.1, 
+  df_final,
+  family = gaussian(),
+  prior = model1.1_prior$prior,
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  threads = threading(2),
+  control = list(
+    adapt_delta = 0.9,
+    max_treedepth = 20),
+  file = '~/Desktop/model1.1_fit',
+  stan_model_args = list(stanc_options = list("O1")),
+  seed = 112,
+  save_all_pars = TRUE
+  )
+
+model1.2 <- brm(
+  formula1.2, 
+  df_final,
+  family = gaussian(),
+  prior = model1.2_prior$prior,
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  threads = threading(2),
+  control = list(
+    adapt_delta = 0.9,
+    max_treedepth = 20),
+  file = '~/Desktop/model1.2_fit',
+  stan_model_args = list(stanc_options = list("O1")),
+  seed = 112,
+  save_all_pars = TRUE
+  )
+
+model1.3 <- brm(
+  formula1.3, 
+  df_final,
+  family = gaussian(),
+  prior = model1.3_prior$prior,
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  threads = threading(2),
+  control = list(
+    adapt_delta = 0.9,
+    max_treedepth = 20),
+  file = '~/Desktop/model1.3_fit',
+  stan_model_args = list(stanc_options = list("O1")),
+  seed = 112,
+  save_all_pars = TRUE
+  )
+
 model2 <- brm(
   formula2, 
   df_final,
@@ -627,6 +827,24 @@ model2 <- brm(
     adapt_delta = 0.9,
     max_treedepth = 20),
   file = '~/Desktop/model2_fit',
+  stan_model_args = list(stanc_options = list("O1")),
+  seed = 112,
+  save_all_pars = TRUE
+  )
+
+model2.2 <- brm(
+  formula2.2, 
+  df_final,
+  family = gaussian(),
+  prior = model2.2_prior$prior,
+  backend = "cmdstanr",
+  chains = 8,
+  cores = 8,
+  threads = threading(2),
+  control = list(
+    adapt_delta = 0.9,
+    max_treedepth = 20),
+  file = '~/Desktop/model2.2_fit',
   stan_model_args = list(stanc_options = list("O1")),
   seed = 112,
   save_all_pars = TRUE
@@ -782,8 +1000,16 @@ model10 <- brm(
 ```{r quality checks}
 model1
 plot(model1)
+model1.1
+plot(model1.1)
+model1.2
+plot(model1.2)
+model1.3
+plot(model1.3)
 model2
 plot(model2)
+model2.2
+plot(model2.2)
 model3
 plot(model3)
 model4
@@ -804,7 +1030,11 @@ plot(model10)
 #model comparison
 ```{r}
 posterior_predictive1 <- pp_check(model1, ndraws = 100)
+posterior_predictive1.1 <- pp_check(model1.1, ndraws = 100)
+posterior_predictive1.2 <- pp_check(model1.2, ndraws = 100)
+posterior_predictive1.3 <- pp_check(model1.3, ndraws = 100)
 posterior_predictive2 <- pp_check(model2, ndraws = 100)
+posterior_predictive2.2 <- pp_check(model2.2, ndraws = 100)
 posterior_predictive3 <- pp_check(model3, ndraws = 100)
 posterior_predictive4 <- pp_check(model4, ndraws = 100)
 posterior_predictive5 <- pp_check(model5, ndraws = 100)
@@ -815,7 +1045,11 @@ posterior_predictive9 <- pp_check(model9, ndraws = 100)
 posterior_predictive10 <- pp_check(model10, ndraws = 100)
 
 posterior_predictive1
+posterior_predictive1.1
+posterior_predictive1.2
+posterior_predictive1.3
 posterior_predictive2
+posterior_predictive2.2
 posterior_predictive3
 posterior_predictive4
 posterior_predictive5
@@ -826,7 +1060,11 @@ posterior_predictive9
 posterior_predictive10
 
 m1 <- add_criterion(model1, criterion = "loo")
+m1.1 <- add_criterion(model1.1, criterion = "loo")
+m1.2 <- add_criterion(model1.2, criterion = "loo")
+m1.3 <- add_criterion(model1.3, criterion = "loo")
 m2 <- add_criterion(model2, criterion = "loo")
+m2.2 <- add_criterion(model2.2, criterion = "loo")
 m3 <- add_criterion(model3, criterion = "loo")
 m4 <- add_criterion(model4, criterion = "loo")
 m5 <- add_criterion(model5, criterion = "loo")
@@ -837,7 +1075,11 @@ m9 <- add_criterion(model9, criterion = "loo")
 m10 <- add_criterion(model10, criterion = "loo")
 
 waic(model1)
+waic(model1.1)
+waic(model1.2)
+waic(model1.3)
 waic(model2)
+waic(model2.2)
 waic(model3)
 waic(model4)
 waic(model5)
@@ -847,11 +1089,15 @@ waic(model8)
 waic(model9)
 waic(model10)
 
-loo_compare(m1, m2, m3, m4, m5, m6, m7, m8, m9, m10)
-loo_model_weights(m1, m2, m3, m4, m5, m6, m7, m8, m9, m10)
+loo_compare(m1, m1.1, m1.2, m1.3, m2, m2.2, m3, m4, m5, m6, m7, m8, m9, m10)
+loo_model_weights(m1, m1.1, m1.2, m1.3, m2, m2.2, m3, m4, m5, m6, m7, m8, m9, m10)
 
 bayes_R2(model1)
+bayes_R2(model1.1)
+bayes_R2(model1.2)
+bayes_R2(model1.3)
 bayes_R2(model2)
+bayes_R2(model2.2)
 bayes_R2(model3)
 bayes_R2(model4)
 bayes_R2(model5)
@@ -875,17 +1121,161 @@ var_imp <- conditional_effects(m5)
 # Plot variable importance
 plot(var_imp)
 ```
-#making the accuracy a factor
+
+
 ```{r}
-df_final$trial_accuracy = as.factor(df_final$trial_accuracy)
+# Generate conditional effects
+ce_m5 <- conditional_effects(m5, effects = "condition")
 
-is.factor(df_final$trial_accuracy)
+# Extract the ggplot object for the "condition" effect
+condition_plot_m5 <- plot(ce_m5, plot = FALSE)[[1]]  # Convert to ggplot
 
-df_final$trial_accuracy <- factor(df_final$trial_accuracy,
-                                  levels = c(0, 1, 2, 3, 4, 5, 6),
-                                  ordered = TRUE)
+# Customize the plot
+condition_plot_custom_m5 <- condition_plot_m5 +
+  scale_color_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +  # Custom colors
+  scale_fill_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +   # Custom fill
+  theme_minimal(base_size = 14) +                                    # Minimal theme
+  labs(
+    title = "Effect of Condition on Assembly Time",
+    x = "Condition",
+    y = "Assembly Time (Seconds)"
+  ) +
+  theme(
+    legend.position = "right",       # Place legend on the right
+    axis.text.x = element_text(angle = 45, hjust = 1), # Rotate x-axis labels
+    plot.title = element_text(face = "bold")           # Bold title
+  )
+
+# Print customized plot
+condition_plot_custom_m5
+
+
+# Generate conditional effects
+fe_m5 <- conditional_effects(m5, effects = "furniture")
+
+# Extract the ggplot object for the "condition" effect
+furniture_plot_m5 <- plot(fe_m5, plot = FALSE)[[1]]  # Convert to ggplot
+
+# Customize the plot
+furniture_plot_custom_m5 <- furniture_plot_m5 +
+  scale_color_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +  # Custom colors
+  scale_fill_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +   # Custom fill
+  theme_minimal(base_size = 14) +                                    # Minimal theme
+  labs(
+    title = "Effect of Furniture Type on Assembly Time",
+    x = "Furniture",
+    y = "Assembly Time (Seconds)"
+  ) +
+  theme(
+    legend.position = "right",       # Place legend on the right
+    axis.text.x = element_text(angle = 45, hjust = 1), # Rotate x-axis labels
+    plot.title = element_text(face = "bold")           # Bold title
+  )
+
+# Print customized plot
+furniture_plot_custom_m5
+
+# Generate conditional effects
+te_m5 <- conditional_effects(m5, effects = "trial_number")
+
+# Extract the ggplot object for the "condition" effect
+trial_plot_m5 <- plot(te_m5, plot = FALSE)[[1]]  # Convert to ggplot
+
+# Customize the plot
+trial_plot_custom_m5 <- trial_plot_m5 +
+  scale_color_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +  # Custom colors
+  scale_fill_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +   # Custom fill
+  theme_minimal(base_size = 14) +                                    # Minimal theme
+  labs(
+    title = "Effect of Trial Number on Assembly Time",
+    x = "Trial Number",
+    y = "Assembly Time (Seconds)"
+  ) +
+  theme(
+    legend.position = "right",       # Place legend on the right
+    axis.text.x = element_text(angle = 45, hjust = 1), # Rotate x-axis labels
+    plot.title = element_text(face = "bold")           # Bold title
+  )
+
+# Print customized plot
+trial_plot_custom_m5
+
+# Generate conditional effects
+ie_m5 <- conditional_effects(m5, effects = "ikea_skills")
+
+# Extract the ggplot object for the "condition" effect
+ikea_plot_m5 <- plot(ie_m5, plot = FALSE)[[1]]  # Convert to ggplot
+
+# Customize the plot
+ikea_plot_custom_m5 <- ikea_plot_m5 +
+  scale_color_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +  # Custom colors
+  scale_fill_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +   # Custom fill
+  theme_minimal(base_size = 14) +                                    # Minimal theme
+  labs(
+    title = "Effect of IKEA Skills on Assembly Time",
+    x = "IKEA Skills",
+    y = "Assembly Time (Seconds)"
+  ) +
+  theme(
+    legend.position = "right",       # Place legend on the right
+    axis.text.x = element_text(angle = 45, hjust = 1), # Rotate x-axis labels
+    plot.title = element_text(face = "bold")           # Bold title
+  )
+
+# Print customized plot
+ikea_plot_custom_m5
+
+# Generate conditional effects
+vre_m5 <- conditional_effects(m5, effects = "vr_experience")
+
+# Extract the ggplot object for the "condition" effect
+vr_plot_m5 <- plot(vre_m5, plot = FALSE)[[1]]  # Convert to ggplot
+
+# Customize the plot
+vr_plot_custom_m5 <- vr_plot_m5 +
+  scale_color_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +  # Custom colors
+  scale_fill_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +   # Custom fill
+  theme_minimal(base_size = 14) +                                    # Minimal theme
+  labs(
+    title = "Effect of VR Experience on Assembly Time",
+    x = "VR Experience",
+    y = "Assembly Time (Seconds)"
+  ) +
+  theme(
+    legend.position = "right",       # Place legend on the right
+    axis.text.x = element_text(angle = 45, hjust = 1), # Rotate x-axis labels
+    plot.title = element_text(face = "bold")           # Bold title
+  )
+
+# Print customized plot
+vr_plot_custom_m5
+
 ```
 
+```{r}
+# Hypothesis for the overall effect 
+hypothesis_time_1 <- hypothesis(
+  m5,
+  "conditionmeta > conditionapple"
+)
+
+hypothesis_time_2 <- hypothesis(
+  m5,
+  "conditionmeta > Intercept"
+)
+
+hypothesis_time_3 <- hypothesis(
+  m5,
+  "vr_experiencemuch > vr_experiencesome"
+)
+
+
+# Print results
+print(hypothesis_time_1)
+print(hypothesis_time_2)
+print(hypothesis_time_3)
+
+```
 
 #creating models for the comparison of the different conditions
 ```{r creating formulas}
@@ -1300,8 +1690,506 @@ model27 <- brm(
 ```
 
 
+#model quality checks
+```{r quality checks}
+model20
+plot(model20)
+model21
+plot(model21)
+model22
+plot(model22)
+model23
+plot(model23)
+model24
+plot(model24)
+model25
+plot(model25)
+model26
+plot(model26)
+model27
+plot(model27)
+```
+
+#model comparison
+```{r}
+posterior_predictive20 <- pp_check(model20, ndraws = 100)
+posterior_predictive21 <- pp_check(model21, ndraws = 100)
+posterior_predictive22 <- pp_check(model22, ndraws = 100)
+posterior_predictive23 <- pp_check(model23, ndraws = 100)
+posterior_predictive24 <- pp_check(model24, ndraws = 100)
+posterior_predictive25 <- pp_check(model25, ndraws = 100)
+posterior_predictive26 <- pp_check(model26, ndraws = 100)
+posterior_predictive27 <- pp_check(model27, ndraws = 100)
+
+posterior_predictive20
+posterior_predictive21
+posterior_predictive22
+posterior_predictive23
+posterior_predictive24
+posterior_predictive25
+posterior_predictive26
+posterior_predictive27
+
+
+m20 <- add_criterion(model20, criterion = "loo")
+m21 <- add_criterion(model21, criterion = "loo")
+m22 <- add_criterion(model22, criterion = "loo")
+m23 <- add_criterion(model23, criterion = "loo")
+m24 <- add_criterion(model24, criterion = "loo")
+m25 <- add_criterion(model25, criterion = "loo")
+m26 <- add_criterion(model26, criterion = "loo")
+m27 <- add_criterion(model27, criterion = "loo")
+
+
+waic(model20)
+waic(model21)
+waic(model22)
+waic(model23)
+waic(model24)
+waic(model25)
+waic(model26)
+waic(model27)
+
+
+loo_compare(m20, m21, m22, m23, m24, m25, m26, m27)
+loo_model_weights(m20, m21, m22, m23, m24, m25, m26, m27)
+
+bayes_R2(model20)
+bayes_R2(model21)
+bayes_R2(model22)
+bayes_R2(model23)
+bayes_R2(model24)
+bayes_R2(model25)
+bayes_R2(model26)
+bayes_R2(model27)
+```
+
+#finding out what the best model says about the data
+```{r looking at the best model}
+summary(m25)
+
+library(vip)
+
+
+# Variable importance based on BMA
+var_imp_1 <- conditional_effects(m25)
+
+# Plot variable importance
+plot(var_imp_1)
+```
+
+```{r}
+# Generate conditional effects
+ce_m25 <- conditional_effects(m25, effects = "condition")
+
+# Extract the ggplot object for the "condition" effect
+condition_plot_m25 <- plot(ce_m25, plot = FALSE)[[1]]  # Convert to ggplot
+
+# Customize the plot
+condition_plot_custom_m25 <- condition_plot_m25 +
+  scale_color_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +  # Custom colors
+  scale_fill_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +   # Custom fill
+  theme_minimal(base_size = 14) +                                    # Minimal theme
+  labs(
+    title = "Effect of Condition on Assembly Time",
+    x = "Condition",
+    y = "Assembly Time (Seconds)"
+  ) +
+  theme(
+    legend.position = "right",       # Place legend on the right
+    axis.text.x = element_text(angle = 45, hjust = 1), # Rotate x-axis labels
+    plot.title = element_text(face = "bold")           # Bold title
+  )
+
+# Print customized plot
+condition_plot_custom_m25
+
+
+# Generate conditional effects
+fe_m25 <- conditional_effects(m25, effects = "furniture")
+
+# Extract the ggplot object for the "condition" effect
+furniture_plot_m25 <- plot(fe_m25, plot = FALSE)[[1]]  # Convert to ggplot
+
+# Customize the plot
+furniture_plot_custom_m25 <- furniture_plot_m25 +
+  scale_color_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +  # Custom colors
+  scale_fill_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +   # Custom fill
+  theme_minimal(base_size = 14) +                                    # Minimal theme
+  labs(
+    title = "Effect of Furniture Type on Assembly Time",
+    x = "Furniture",
+    y = "Assembly Time (Seconds)"
+  ) +
+  theme(
+    legend.position = "right",       # Place legend on the right
+    axis.text.x = element_text(angle = 45, hjust = 1), # Rotate x-axis labels
+    plot.title = element_text(face = "bold")           # Bold title
+  )
+
+# Print customized plot
+furniture_plot_custom_m25
+
+# Generate conditional effects
+te_m25 <- conditional_effects(m25, effects = "trial_number")
+
+# Extract the ggplot object for the "condition" effect
+trial_plot_m25 <- plot(te_m25, plot = FALSE)[[1]]  # Convert to ggplot
+
+# Customize the plot
+trial_plot_custom_m25 <- trial_plot_m25 +
+  scale_color_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +  # Custom colors
+  scale_fill_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +   # Custom fill
+  theme_minimal(base_size = 14) +                                    # Minimal theme
+  labs(
+    title = "Effect of Trial Number on Assembly Time",
+    x = "Trial Number",
+    y = "Assembly Time (Seconds)"
+  ) +
+  theme(
+    legend.position = "right",       # Place legend on the right
+    axis.text.x = element_text(angle = 45, hjust = 1), # Rotate x-axis labels
+    plot.title = element_text(face = "bold")           # Bold title
+  )
+
+# Print customized plot
+trial_plot_custom_m25
+
+# Generate conditional effects
+ie_m25 <- conditional_effects(m25, effects = "ikea_skills")
+
+# Extract the ggplot object for the "condition" effect
+ikea_plot_m25 <- plot(ie_m25, plot = FALSE)[[1]]  # Convert to ggplot
+
+# Customize the plot
+ikea_plot_custom_m25 <- ikea_plot_m25 +
+  scale_color_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +  # Custom colors
+  scale_fill_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +   # Custom fill
+  theme_minimal(base_size = 14) +                                    # Minimal theme
+  labs(
+    title = "Effect of IKEA Skills on Assembly Time",
+    x = "IKEA Skills",
+    y = "Assembly Time (Seconds)"
+  ) +
+  theme(
+    legend.position = "right",       # Place legend on the right
+    axis.text.x = element_text(angle = 45, hjust = 1), # Rotate x-axis labels
+    plot.title = element_text(face = "bold")           # Bold title
+  )
+
+# Print customized plot
+ikea_plot_custom_m25
+
+# Generate conditional effects
+vre_m25 <- conditional_effects(m25, effects = "vr_experience")
+
+# Extract the ggplot object for the "condition" effect
+vr_plot_m25 <- plot(vre_m25, plot = FALSE)[[1]]  # Convert to ggplot
+
+# Customize the plot
+vr_plot_custom_m25 <- vr_plot_m25 +
+  scale_color_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +  # Custom colors
+  scale_fill_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +   # Custom fill
+  theme_minimal(base_size = 14) +                                    # Minimal theme
+  labs(
+    title = "Effect of VR Experience on Assembly Time",
+    x = "VR Experience",
+    y = "Assembly Time (Seconds)"
+  ) +
+  theme(
+    legend.position = "right",       # Place legend on the right
+    axis.text.x = element_text(angle = 45, hjust = 1), # Rotate x-axis labels
+    plot.title = element_text(face = "bold")           # Bold title
+  )
+
+# Print customized plot
+vr_plot_custom_m25
+
+# Generate conditional effects
+cfe_m25 <- conditional_effects(m25, effects = "condition:furniture")
+
+# Extract the ggplot object for the "condition" effect
+cf_plot_m25 <- plot(cfe_m25, plot = FALSE)[[1]]  # Convert to ggplot
+
+# Customize the plot
+cf_plot_custom_m25 <- cf_plot_m25 +
+  scale_color_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +  # Custom colors
+  scale_fill_manual(values = c("#68758E", "#FEDFAB", "#E6A483")) +   # Custom fill
+  theme_minimal(base_size = 14) +                                    # Minimal theme
+  labs(
+    title = "Effect of Condition on Assembly Time",
+    x = "Condition",
+    y = "Assembly Time (Seconds)"
+  ) +
+  theme(
+    legend.position = "right",       # Place legend on the right
+    axis.text.x = element_text(angle = 45, hjust = 1), # Rotate x-axis labels
+    plot.title = element_text(face = "bold")           # Bold title
+  )
+
+# Print customized plot
+cf_plot_custom_m25
+```
 
 
 
 
+```{r}
+# Hypothesis for the overall effect of Text
+hypothesis_accuarcy <- hypothesis(
+  m25,
+  "vr_experiencemuch < vr_experiencesome"
+)
+
+
+# Print results
+print(hypothesis_accuarcy)
+
+conditional_effects(m25)
+
+```
+
+
+#t-test for enjoyment
+```{r}
+
+#combining all enjoyments to use in graph
+df_final <- df_final %>%
+  mutate(
+    enjoyment = case_when(
+      enjoy_video != 0 ~ enjoy_video,  
+      enjoy_meta != 0 ~ enjoy_meta, 
+      enjoy_apple != 0 ~ enjoy_apple, 
+      TRUE ~ 0
+    )
+  )
+
+df_rename <- df_rename %>%
+  mutate(
+    enjoyment = case_when(
+      enjoy_video != 0 ~ enjoy_video,  
+      enjoy_meta != 0 ~ enjoy_meta, 
+      enjoy_apple != 0 ~ enjoy_apple, 
+      TRUE ~ 0
+    )
+  )
+
+
+ggplot(df_final, aes(x = enjoyment)) +
+geom_histogram(aes(y = ..density..),
+binwidth = 0.25,
+color = "black",
+fill = "white") +
+ggtitle("Checking if Enjoyment is Normally Distributed") +
+stat_function(fun = dnorm,
+args = list(mean = mean(df_final$enjoyment, na.rm = TRUE),
+sd = sd(df_final$enjoyment, na.rm = TRUE)),
+colour= "darkgreen", size = 1) +
+theme_classic() +
+xlim(range(df_final$enjoyment))
+```
+
+#assumption checking where enjoyment is dependent variable
+```{r}
+# Load necessary libraries
+library(car)       # For Levene's test
+
+# Assuming `df_final` is your dataset and 'enjoyment' is the dependent variable
+
+# 1. Check Normality for Each Group
+normality_tests <- df_final %>%
+  group_by(condition) %>%
+  summarise(
+    shapiro_p = shapiro.test(enjoyment)$p.value
+  )
+
+print("Shapiro-Wilk Test for Normality:")
+print(normality_tests)
+
+# Interpretation:
+# If p > 0.05, normality is not violated.
+
+# 2. Check Homogeneity of Variance
+levene_test <- leveneTest(enjoyment ~ condition, data = df_final)
+
+print("Levene's Test for Homogeneity of Variance:")
+print(levene_test)
+
+# Interpretation:
+# If p > 0.05, the variances are not significantly different (homogeneity holds).
+
+# 3. Check for Outliers
+ggplot(df_final, aes(x = condition, y = enjoyment)) +
+  geom_boxplot(outlier.color = "red", outlier.size = 3) +
+  labs(title = "Boxplot to Inspect Outliers", x = "Condition", y = "Enjoyment") +
+  theme_minimal()
+
+# Interpretation:
+# Check the boxplot visually for extreme outliers (red points).
+
+# 4. Check Independence of Observations
+# This is based on the study design. If you suspect violations, use the below to check:
+# Correlation within groups can indicate non-independence.
+independence_check <- df_final %>%
+  group_by(condition) %>%
+  summarise(correlation = cor(enjoyment, trial_number, use = "complete.obs"))
+
+print("Independence Check (Correlation with Trial Number):")
+print(independence_check)
+```
+
+
+
+
+#t-test for enjoyment
+```{r}
+pairwise_t_test <- pairwise.t.test(
+  df_final$enjoyment,
+  df_final$condition,
+  p.adjust.method = "bonferroni",
+  pool.sd = FALSE  # Use Welch's t-test
+)
+print(pairwise_t_test)
+```
+
+#Concentration
+```{r}
+
+#combining all concentration to use in graph
+df_final <- df_final %>%
+  mutate(
+    concentration = case_when(
+      conc_video != 0 ~ conc_video,  
+      conc_meta != 0 ~ conc_meta, 
+      conc_apple != 0 ~ conc_apple, 
+      TRUE ~ 0
+    )
+  )
+
+df_rename <- df_rename %>%
+  mutate(
+    concentration = case_when(
+      conc_video != 0 ~ conc_video,  
+      conc_meta != 0 ~ conc_meta, 
+      conc_apple != 0 ~ conc_apple, 
+      TRUE ~ 0
+    )
+  )
+
+ggplot(df_final, aes(x = concentration)) +
+geom_histogram(aes(y = ..density..),
+binwidth = 0.25,
+color = "black",
+fill = "white") +
+ggtitle("Checking if Concentration is Normally Distributed") +
+stat_function(fun = dnorm,
+args = list(mean = mean(df_final$concentration, na.rm = TRUE),
+sd = sd(df_final$concentration, na.rm = TRUE)),
+colour= "darkgreen", size = 1) +
+theme_classic() +
+xlim(range(df_final$concentration))
+```
+#checking assumptions for concentration
+```{r}
+# 1. Check Normality for Each Group
+normality1_tests <- df_final %>%
+  group_by(condition) %>%
+  summarise(
+    shapiro_p = shapiro.test(concentration)$p.value
+  )
+
+print("Shapiro-Wilk Test for Normality:")
+print(normality1_tests)
+
+# Interpretation:
+# If p > 0.05, normality is not violated.
+
+# 2. Check Homogeneity of Variance
+levene_test1 <- leveneTest(concentration ~ condition, data = df_final)
+
+print("Levene's Test for Homogeneity of Variance:")
+print(levene_test1)
+
+# Interpretation:
+# If p > 0.05, the variances are not significantly different (homogeneity holds).
+
+# 3. Check for Outliers
+ggplot(df_final, aes(x = condition, y = concentration)) +
+  geom_boxplot(outlier.color = "red", outlier.size = 3) +
+  labs(title = "Boxplot to Inspect Outliers", x = "Condition", y = "Enjoyment") +
+  theme_minimal()
+
+# Interpretation:
+# Check the boxplot visually for extreme outliers (red points).
+
+# 4. Check Independence of Observations
+# This is based on the study design. If you suspect violations, use the below to check:
+# Correlation within groups can indicate non-independence.
+independence_check1 <- df_final %>%
+  group_by(condition) %>%
+  summarise(correlation = cor(concentration, trial_number, use = "complete.obs"))
+
+print("Independence Check (Correlation with Trial Number):")
+print(independence_check1)
+```
+
+
+#t-test for concentration
+```{r}
+pairwise_t_test1 <- pairwise.t.test(
+  df_final$concentration,
+  df_final$condition,
+  p.adjust.method = "bonferroni",
+  pool.sd = FALSE  # Use Welch's t-test
+)
+print(pairwise_t_test1)
+```
+
+```{r}
+enjoyment_plot <- df_rename %>% 
+  ggplot(aes(x = condition, y = enjoyment, fill = condition)) +
+    facet_wrap(~furniture) + #faceting by furniture for clarity
+    geom_bar(stat = 'summary', fun = mean, width = 0.75)+
+    geom_errorbar(stat = "summary", fun.data = "mean_se", width = 0.1) + #adding error bars and necessary information to plot graph
+    labs(x = "Learning Method", y = "Enjoyment of Learning Method") +
+    ggtitle("Self-reported Enjoyment based on Learning Method") +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 15)) + # Wrap text
+    theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+     scale_fill_manual(
+      values = c("#68758E", "#FEDFAB", "#E6A483"),  # Colors for each condition
+      name = "Learning Condition",                 # Legend title
+      labels = c("Video (No Interaction)", "VR (Controller Interaction)", "VR (Hands Free Interaction)")  # Custom legend labels
+    ) +
+    theme(
+      legend.position = "right",  # Position of the legend
+      legend.title = element_text(size = 8),  # Customize legend title size
+      legend.text = element_text(size = 6))  # Customize legend text size
+
+
+enjoyment_plot
+```
+
+```{r}
+concentration_plot <- df_rename %>% 
+  ggplot(aes(x = condition, y = concentration, fill = condition)) +
+    facet_wrap(~furniture) + #faceting by furniture for clarity
+    geom_bar(stat = 'summary', fun = mean, width = 0.75)+
+    geom_errorbar(stat = "summary", fun.data = "mean_se", width = 0.1) + #adding error bars and necessary information to plot graph
+    labs(x = "Learning Method", y = "Concentration on Learning Method") +
+    ggtitle("Self-reported Concentration based on Learning Method") +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 15)) + # Wrap text
+    theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) +
+     scale_fill_manual(
+      values = c("#68758E", "#FEDFAB", "#E6A483"),  # Colors for each condition
+      name = "Learning Condition",                 # Legend title
+      labels = c("Video (No Interaction)", "VR (Controller Interaction)", "VR (Hands Free Interaction)")  # Custom legend labels
+    ) +
+    theme(
+      legend.position = "right",  # Position of the legend
+      legend.title = element_text(size = 8),  # Customize legend title size
+      legend.text = element_text(size = 6))  # Customize legend text size
+
+
+concentration_plot
+```
 
