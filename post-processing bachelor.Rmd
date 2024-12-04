@@ -20,7 +20,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = '~/Desktop')
+knitr::opts_knit$set(root.dir = '/Users/shirazbenshoshan/Desktop/Cognitive Science/VR Bachelor/bachelor_data')
 
 pacman::p_load(
   tidyverse,
@@ -2065,6 +2065,18 @@ df_final <- df_final %>%
       TRUE ~ 0
     )
   )
+
+df_summary_concentration1 <- df_final %>%
+  group_by(condition) %>% 
+  summarize(concentration = mean(concentration, na.rm = TRUE))
+
+df_summary_concentration1
+        
+df_summary_enjoyment1 <- df_final %>%
+  group_by(condition) %>% 
+  summarize(enjoyment = mean(enjoyment, na.rm = TRUE))
+
+df_summary_enjoyment1
 
 df_rename <- df_rename %>%
   mutate(
